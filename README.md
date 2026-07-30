@@ -4,6 +4,55 @@ Production backend for **Underprice** — an Android app that helps people spot 
 
 This repo owns the **API, agents, specialist orchestration, cache, and Modal GPU serving**. Model training and Hub publishing live in a separate research repo (`price-engine`); this service only **consumes** a versioned PEFT adapter.
 
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    Android[Android app]
+  end
+
+  subgraph sources [Ingest]
+    Paste[Paste / share]
+    DealNews[DealNews RSS]
+  end
+
+  subgraph api [underprice-api]
+    Gateway[FastAPI]
+    Planner[Planner]
+    Scanner[Scanner]
+    Ensemble[Ensemble]
+    Store[(Store)]
+  end
+
+  subgraph specialists [Ensemble specialists]
+    Median[Median]
+    RAG[RAG]
+    FT[FineTuned]
+    Judge[Judge]
+  end
+
+  GPU[Modal T4 · scale-to-zero]
+  Hub[HF Hub PEFT]
+
+  Android --> Gateway
+  Paste --> Gateway
+  DealNews --> Scanner
+  Gateway --> Planner
+  Planner --> Scanner
+  Planner --> Ensemble
+  Ensemble --> Median
+  Ensemble --> RAG
+  Ensemble --> FT
+  Ensemble --> Judge
+  FT --> GPU
+  GPU --> Hub
+  Ensemble --> Store
+  Gateway -->|GET /v1/deals| Store
+```
+
+Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (system context, cascade gates, infra).
+
 ## What it proves
 
 - Modular **planner → scanner → ensemble → messenger** agents (stubs allowed; boundaries are not)
